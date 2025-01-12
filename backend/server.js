@@ -33,6 +33,25 @@ const generateData = () => {
   return items;
 };
 
+// Middleware for token authentication
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  try {
+    jwt.verify(token, SECRET_KEY); // Verify token validity
+    next(); // Token is valid, proceed to the next middleware/handler
+  } catch (err) {
+    return res.status(403).json({ error: "Invalid or expired token" });
+  }
+};
+
+// Temporary in-memory storage for added items
+let addedItems = [];
+
 // API endpoint for login
 app.post("/api/login", (req, res) => {
   const { email, password } = req.body;
@@ -47,69 +66,26 @@ app.post("/api/login", (req, res) => {
 });
 
 // API endpoint to return data
-// Temporary in-memory storage for added items
-let addedItems = [];
+app.get("/api/data", authenticateToken, (req, res) => {
+  const data = [...generateData(), ...addedItems]; // Combine generated and added items
+  res.json(data);
+});
 
 // API endpoint to add an item
-app.post("/api/data", (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized" });
+app.post("/api/data", authenticateToken, (req, res) => {
+  const { name, dob } = req.body;
+  if (!name || !dob) {
+    return res.status(400).json({ error: "Name and DOB are required" });
   }
 
-  const token = authHeader.split(" ")[1];
-  try {
-    jwt.verify(token, SECRET_KEY); // Verify token validity
+  const newItem = {
+    id: addedItems.length + 21, // Ensure unique IDs
+    name,
+    dob,
+  };
 
-    const { name, dob } = req.body;
-    if (!name || !dob) {
-      return res.status(400).json({ error: "Name and DOB are required" });
-    }
-
-    const newItem = {
-      id: addedItems.length + 21, // Ensure unique IDs
-      name,
-      dob,
-    };
-
-    addedItems.push(newItem); // Add item to the in-memory store
-    res.status(201).json(newItem); // Respond with the new item
-  } catch (err) {
-    res.status(403).json({ error: "Invalid or expired token" });
-  }
-});
-
-// Modify the GET /api/data endpoint to include added items
-app.get("/api/data", (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  const token = authHeader.split(" ")[1];
-  try {
-    jwt.verify(token, SECRET_KEY); // Verify token validity
-    const data = [...generateData(), ...addedItems]; // Combine generated and added items
-    res.json(data);
-  } catch (err) {
-    res.status(403).json({ error: "Invalid or expired token" });
-  }
-});
-
-app.get("/api/data", (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  const token = authHeader.split(" ")[1];
-  try {
-    jwt.verify(token, SECRET_KEY); // Verify token validity
-    const data = generateData();
-    res.json(data);
-  } catch (err) {
-    res.status(403).json({ error: "Invalid or expired token" });
-  }
+  addedItems.push(newItem); // Add item to the in-memory store
+  res.status(201).json(newItem); // Respond with the new item
 });
 
 // Error handling for invalid routes
