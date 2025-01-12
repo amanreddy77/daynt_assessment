@@ -7,7 +7,22 @@ const app = express();
 const SECRET_KEY = "your-secret-key";
 
 // Middleware
-app.use(cors({ origin: "http://localhost:5173" })); // Allow your frontend origin
+const allowedOrigins = ["http://localhost:5173", "https://daynt-assessment.vercel.app"];
+
+// Use a function to check the origin dynamically
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (like mobile apps or curl)
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true, 
+};
+
+app.use(cors(corsOptions));
 app.use(json());
 app.use(morgan("dev"));
 
@@ -51,6 +66,11 @@ const authenticateToken = (req, res, next) => {
 
 // Temporary in-memory storage for added items
 let addedItems = [];
+
+// Root route
+// app.get("/", (req, res) => {
+//   res.send("Welcome to the API server! Use the endpoints to interact with the API.");
+// });
 
 // API endpoint for login
 app.post("/api/login", (req, res) => {
